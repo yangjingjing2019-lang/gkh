@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>漢語拼音互動實驗室 - gkh 拼讀分頁</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; background-color: #f8fafc; color: #334155; }
+.pinyin-display { font-family: Arial, sans-serif; }
+.neumorphic-card { background: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+.expand-enter-active, .expand-leave-active { transition: all 0.3s ease-out; max-height: 800px; overflow: hidden; }
+.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; }
+.dev-panel { position: fixed; bottom: 0; left: 0; right: 0; background: #0f172a; color: white; padding: 20px; z-index: 1000; max-height: 50vh; overflow-y: auto; font-family: monospace; border-top: 4px solid #f59e0b; box-shadow: 0 -10px 25px rgba(0,0,0,0.3); }
+.marker-active { background: #f59e0b !important; color: #000 !important; font-weight: bold; border-color: white !important; transform: scale(1.05); }
+.marker-done { opacity: 0.4; background: #334155; }
+.active\:scale-98\:active { transform: scale(0.98); }
+
+@keyframes fadeIn {
+from { opacity: 0; transform: scale(0.95); }
+to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+</style>
+</head>
+<body class="p-4 sm:p-6">
+<div id="app" class="max-w-2xl mx-auto pb-32">
+
+<!-- 拼讀配音音頻源 (後期可替換為你錄製的 pinyin_gkh.mp3) -->
+<audio ref="audioPlayer" src="pinyin_gkh.mp3" preload="auto" class="hidden"></audio>
+<!-- Kuang 四聲修正版獨立音頻 -->
+<audio ref="kuangAudioPlayer" src="kuang.mp3" preload="auto" class="hidden"></audio>
+
+<!-- 頂部導航與版權欄 -->
+<div class="flex justify-between items-center mb-6">
+<div class="text-[11px] sm:text-xs text-slate-400 leading-relaxed font-medium">
+<p>錄音僅供參考。網頁僅供機構內部使用。</p>
+<p>© 普通話培訓測試中心版權所有。</p>
+</div>
+<a href="https://yangjingjing2019-lang.github.io/Initial-Final/" class="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95">
+🏠 回到主目錄
+</a>
+</div>
+
+<header class="space-y-6 mb-8">
+<div class="text-center space-y-3">
+<h1 class="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-wide">漢語拼音拼讀學習實驗室</h1>
+<p class="text-xs sm:text-sm bg-orange-100 text-orange-700 font-bold py-1.5 px-4 rounded-full inline-block mx-auto max-w-max shadow-sm">
+🎯 舌根音 g k h 專屬拼讀模組
+</p>
+</div>
+
+<div class="neumorphic-card overflow-hidden">
+<button @click="toggleMenu('initial')"
+class="w-full px-5 py-4 sm:px-6 sm:py-5 flex justify-between items-center bg-emerald-50 hover:bg-emerald-100 transition-colors">
+<span class="font-bold text-emerald-700 sm:text-lg">1. 聲母: <span class="text-xl sm:text-2xl ml-2">{{ selectedInitial === '' ? '零聲母 Ø' : (selectedInitial || '請選擇') }}</span></span>
+<span :class="{'rotate-180': openMenu === 'initial'}" class="transition-transform">▼</span>
+</button>
+<transition name="expand">
+<div v-show="openMenu === 'initial'" class="p-4 sm:p-5 bg-white border-t">
+<div v-for="(group, name) in initialsData" :key="name" class="mb-4">
+<p class="text-[11px] sm:text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">{{ name }}</p>
+<div class="grid grid-cols-5 gap-2 sm:gap-3">
+<button v-for="s in group" :key="s"
+@click="selectInitial(s)"
+class="py-3 rounded-lg border transition-all font-bold text-sm sm:text-base"
+:class="selectedInitial === s ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'">
+{{ s === '' ? 'Ø' : s }}
+</button>
+</div>
+</div>
+</div>
+</transition>
+</div>
+
+<div class="neumorphic-card overflow-hidden">
+<button @click="toggleMenu('final')"
+class="w-full px-5 py-4 sm:px-6 sm:py-5 flex justify-between items-center bg-blue-50 hover:bg-blue-100 transition-colors">
+<span class="font-bold text-blue-700 sm:text-lg">2. 韻母 : <span class="text-xl sm:text-2xl ml-2">{{ selectedFinal || '請選擇' }}</span></span>
+<span :class="{'rotate-180': openMenu === 'final'}" class="transition-transform">▼</span>
+</button>
+<transition name="expand">
+<div v-show="openMenu === 'final'" class="p-4 sm:p-5 bg-white border-t">
+<div v-for="(group, name) in finalsData" :key="name" class="mb-5">
+<p class="text-[11px] sm:text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">{{ name }}</p>
+<div class="grid grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
+<button v-for="y in group" :key="y"
+@click="selectFinal(y)"
+:disabled="isFinalDisabled(y)"
+class="py-3 rounded-lg border transition-all font-bold text-sm sm:text-base disabled:opacity-20 disabled:grayscale disabled:cursor-not-allowed"
+:class="[selectedFinal === y ? 'bg-blue-500 text-white border-blue-500 shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-slate-100']">
+{{ y }}
+</button>
+</div>
+</div>
+</div>
+</transition>
+</div>
+</header>
+
+<main v-if="selectedFinal !== null" class="space-y-4 sm:space-y-6">
+<div @click="playByPinyin(selectedInitial + displayFinal)" class="text-center p-6 sm:p-8 neumorphic-card bg-gradient-to-br from-white to-slate-50 border-2 border-emerald-100 cursor-pointer group active:scale-[0.98] transition-transform">
+<p class="text-xs sm:text-sm font-bold text-slate-400 mb-3">點擊播放拼讀相合音</p>
+<div class="pinyin-display text-6xl sm:text-7xl md:text-8xl font-bold tracking-tight">
+<span class="text-emerald-500">{{ selectedInitial }}</span><span class="text-blue-500">{{ displayFinal }}</span>
+</div>
+</div>
+
+<div class="grid grid-cols-1 gap-3 sm:gap-4">
+<div v-for="(tone, index) in toneResults" :key="index"
+@click="playByPinyin(tone.pinyin)"
+class="flex items-center justify-between p-4 sm:p-5 neumorphic-card hover:border-emerald-300 border border-transparent transition-all cursor-pointer group active:scale-[0.99]">
+<div>
+<span class="text-3xl sm:text-4xl font-bold pinyin-display text-slate-800">{{ tone.pinyin }}</span>
+</div>
+<div class="flex items-center gap-2 sm:gap-3">
+<span class="hidden xs:inline-block text-xs sm:text-sm font-bold px-2.5 py-1.5 bg-slate-100 rounded-full text-slate-500">第 {{ index+1 }} 聲</span>
+
+<button @click.stop="askAiForCharacters(tone.pinyin)"
+class="px-3 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-95 flex items-center gap-1">
+<span>🤖 AI查字</span>
+</button>
+
+<button class="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-full text-base sm:text-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+🔊
+</button>
+</div>
+</div>
+</div>
+</main>
+
+<div v-show="aiModal.show" style="display: none;" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+<div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative transform transition-all animate-fade-in">
+<button @click="aiModal.show = false" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-light">×</button>
+
+<div class="flex items-center gap-3 border-b pb-3">
+<div class="p-2.5 bg-indigo-100 rounded-xl text-xl shadow-sm">🤖</div>
+<div>
+<h3 class="font-bold text-slate-800 text-base sm:text-lg">AI 漢字學習助手</h3>
+<p class="text-xs text-slate-400">正在解構讀音為 <span class="font-extrabold text-indigo-600 text-sm pinyin-display">{{ aiModal.pinyin }}</span> 的同音字族</p>
+</div>
+</div>
+
+<div v-if="aiModal.loading" class="py-10 text-center space-y-3">
+<div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+<p class="text-xs text-slate-400 font-medium animate-pulse">AI 正在深度檢索語義關係鏈...</p>
+</div>
+
+<div v-else class="space-y-4">
+<div>
+<h4 class="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">💡 對應常用漢字</h4>
+<div class="flex flex-wrap gap-2">
+<span v-for="char in aiModal.result.chars" :key="char" class="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xl text-slate-700 shadow-sm">
+{{ char }}
+</span>
+<p v-if="aiModal.result.chars.length === 0" class="text-xs text-slate-400 italic">該調值組合在現代普通話中無常用核心字。</p>
+</div>
+</div>
+
+<div v-if="aiModal.result.words && aiModal.result.words.length > 0">
+<h4 class="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">📚 核心詞彙示範</h4>
+<ul class="space-y-2 text-xs sm:text-sm text-slate-600">
+<li v-for="w in aiModal.result.words" :key="w.word" class="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+<span class="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-xs mt-0.5 whitespace-nowrap">{{ w.word }}</span>
+<span class="text-slate-500 leading-tight">{{ w.meaning }}</span>
+</li>
+</ul>
+</div>
+
+<div class="bg-amber-50 rounded-xl p-3.5 border border-amber-100 text-xs text-amber-800 leading-relaxed shadow-sm">
+<span class="font-bold block mb-1">🧠 AI 語意發音提示：</span>
+{{ aiModal.result.tip }}
+</div>
+</div>
+
+<div class="pt-2 flex justify-end">
+<button @click="aiModal.show = false" class="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-bold transition-colors shadow-md">
+掌握了，關閉視窗
+</button>
+</div>
+</div>
+</div>
+
+<div v-show="devMode" style="display: none;" class="dev-panel">
+<div class="sticky top-0 bg-[#0f172a] pb-4 mb-4 border-b border-slate-700">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+<h2 class="text-orange-400 font-bold text-lg">錄音標記助手 (gkh 專屬)</h2>
+<div class="flex flex-wrap items-center gap-2">
+<!-- 完整播放按鈕移到此處：僅供開發標記者調用，不影響學習者界面 -->
+<button @click="toggleFullAudio" :class="isFullPlaying ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-700 hover:bg-slate-800'" class="text-white px-3 py-1 rounded text-sm font-bold transition-colors">
+{{ isFullPlaying ? '⏸️ 暫停錄音' : '▶️ 播放完整錄音' }}
+</button>
+<button @click="startRecordingList" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-sm font-bold transition-colors">1. 生成專屬清單</button>
+<button @click="exportData" class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-sm font-bold transition-colors">2. 複製數據</button>
+</div>
+</div>
+<div v-if="devMarkers.length > 0" class="bg-slate-800 p-4 rounded-lg border border-orange-500/50">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-orange-400 text-xs font-bold mb-1 uppercase">當前應標記音節：</p>
+<p class="text-5xl font-bold text-white">{{ devMarkers[currentMarkerIndex]?.id }}</p>
+</div>
+<div class="text-right">
+<p class="text-slate-400 text-xs">下一個：{{ devMarkers[currentMarkerIndex + 1]?.id || '無' }}</p>
+<p class="text-slate-500 text-xs mt-1">進度：{{ currentMarkerIndex + 1 }}/{{ devMarkers.length }}</p>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 text-[10px]">
+<div v-for="(m, i) in devMarkers" :key="i" :id="'marker-' + i" class="p-2 border border-slate-700 rounded transition-all" :class="{'marker-active': currentMarkerIndex === i, 'marker-done': i < currentMarkerIndex}">
+<span class="block opacity-50">#{{ i + 1 }}</span>
+<span class="text-sm font-bold">{{ m.id }}</span>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, nextTick } = Vue;
+
+// 🧠 全音節高緊湊數據庫 (覆蓋 g, k, h 旗下所有 valid 組合的 1~4 聲)
+const compactDb = {
+"ga": ["嘎,伽|嘎嘎:鴨叫擬聲詞", "軋|軋朋友:方言，交朋友", "嘎|嘎小子:方言，調皮小子", "尬|尷尬:處境窘迫不自然"],
+"ge": ["哥,歌,鴿|哥哥:兄長,歌唱:用嗓子唱曲", "革,格,隔|革命:根本變革,格子:方形圖案", "葛,舸|葛:姓氏", "個,各,箇|個人:單獨一人,各種:多種不同"],
+"gu": ["姑,孤,估|姑姑:父親的姊妹,孤單:獨自無伴", "/|提示:此調無代表字", "古,骨,鼓|古代:久遠年代,鼓掌:拍手叫好", "故,固,顧|故事:講述的事情,固定:不移動"],
+"gai": ["該|應該:理當如此", "/|提示:此調無代表字", "改|改正:糾正錯誤", "蓋,概,溉|蓋子:遮蓋物件,大概:大約估計"],
+"gei": ["/|提示:此調無代表字", "/|提示:此調無代表字", "給|給:交付他人", "/|提示:此調無代表字"],
+"gao": ["高,膏,篙|高山:高聳山峰,牙膏:清潔牙齒用品", "/|提示:此調無代表字", "搞,稿|搞笑:引人發笑,稿件:文章草稿", "告|告訴:對人陳述"],
+"gou": ["溝,鉤,勾|水溝:排水通道,鉤子:彎曲掛物件", "/|提示:此調無代表字", "狗,苟|小狗:常見寵物,苟且:敷衍不認真", "夠,構,購|足夠:數量充足,購買:花錢取得"],
+"gua": ["瓜,刮|西瓜:夏季水果,刮風:風勢猛烈", "/|提示:此調無代表字", "寡,剮|寡言:話很少", "掛,卦|掛號:排序登記,卦象:占卜符號"],
+"guo": ["鍋,郭|鍋子:炊煮器具,城郭:城牆", "國|國家:政治共同體", "果,裹|水果:可食果實,包裹:包紮郵件", "過|過去:已經經歷"],
+"guai": ["乖|乖巧:聽話討人喜歡", "/|提示:此調無代表字", "拐|拐彎:改變方向", "怪|奇怪:不合常理"],
+"gui": ["規,歸,龜|規則:共同準則,歸來:回到原處", "/|提示:此調無代表字", "鬼,軌|鬼怪:傳說精靈,軌道:行進路線", "貴,櫃,桂|昂貴:價格很高,櫃子:收納家具"],
+"gan": ["甘,乾,竿|甘甜:味道很甜,竹竿:細長竹條", "/|提示:此調無代表字", "感,趕,敢|感謝:表示謝意,趕快:加快速度", "幹|幹活:做工作"],
+"gen": ["跟,根|跟隨:在後面走,根本:事物基礎", "哏|哏:方言，滑稽有趣", "艮|艮:性子直", "亙|亙古:自古以來"],
+"guan": ["關,官,觀|關門:把門合上,官員:公職人員", "/|提示:此調無代表字", "管,館|管理:負責照管,圖書館:藏書場所", "慣,貫,灌|習慣:長期養成,灌溉:引水澆田"],
+"gun": ["/|提示:此調無代表字", "/|提示:此調無代表字", "滾,袞|滾動:翻轉前進", "棍|棍子:細長木條"],
+"gang": ["剛,鋼,崗|剛才:不久之前,鋼鐵:堅硬金屬", "/|提示:此調無代表字", "港|港口:船舶停泊處", "槓|槓桿:省力機械"],
+"geng": ["耕,羹|耕田:翻土種植,羹湯:濃湯食品", "/|提示:此調無代表字", "耿,梗|耿直:正直坦率,梗概:大略內容", "更|更加:程度加深"],
+"gong": ["工,公,功|工作:從事勞動,公園:公共綠地", "/|提示:此調無代表字", "拱,鞏|拱橋:弧形橋樑,鞏固:使更牢固", "共,貢|共同:一起參與,貢獻:付出效力"],
+"guang": ["光|光明:明亮有希望", "/|提示:此調無代表字", "廣|廣大:範圍寬闊", "逛|逛街:閒走遊覽"],
+"ka": ["咖,喀|咖啡:烘焙飲品,喀嚓:斷裂擬聲詞", "/|提示:此調無代表字", "卡|卡片:小張紙片", "/|提示:此調無代表字"],
+"ke": ["科,棵,苛|科學:系統知識,一棵:樹木量詞", "殼|貝殼:軟體動物外殼", "可,渴,坷|可以:表示許可,口渴:想要喝水", "課,客,刻|上課:進行教學,客人:來訪者"],
+"ku": ["哭,窟|哭泣:流淚出聲,石窟:岩洞", "/|提示:此調無代表字", "苦|苦味:像黃連的味道", "庫,褲,酷|倉庫:儲物場所,褲子:下身衣物"],
+"kai": ["開|開門:打開門戶", "/|提示:此調無代表字", "凱,慨|凱旋:得勝歸來,慷慨:大方豪爽", "愾|愾:氣憤"],
+"kei": ["剋|剋:方言，打或責備", "/|提示:此調無代表字", "/|提示:此調無代表字", "/|提示:此調無代表字"],
+"kao": ["尻|尻:古書上指屁股", "/|提示:此調無代表字", "考,烤,拷|考試:測驗學習成果,烤肉:火上炙食", "靠|靠近:貼近依傍"],
+"kou": ["摳|摳門:過分節省", "/|提示:此調無代表字", "口|口才:說話能力", "扣,寇|扣子:衣服鈕扣,盜寇:強盜"],
+"kua": ["誇|誇獎:稱讚肯定", "/|提示:此調無代表字", "垮|垮台:徹底失敗", "跨|跨越:越過障礙"],
+"kuo": ["/|提示:此調無代表字", "/|提示:此調無代表字", "/|提示:此調無代表字", "闊,擴,括|寬闊:廣大寬敞,擴大:向外增大"],
+"kuai": ["/|提示:此調無代表字", "/|提示:此調無代表字", "㧟|㧟:用指甲抓", "快,塊,筷|快樂:心情愉悅,筷子:進食用具"],
+"kui": ["虧,盔|吃虧:受到損失,頭盔:護頭裝備", "葵,魁|向日葵:朝陽花卉,魁首:第一名", "傀|傀儡:受人操縱者", "愧,潰|慚愧:內心不安,潰敗:徹底失敗"],
+"kan": ["刊|刊物:定期出版品", "/|提示:此調無代表字", "砍,坎|砍樹:用刀斧劈,坎坷:道路不平", "看|看見:用眼睛觀察"],
+"ken": ["/|提示:此調無代表字", "/|提示:此調無代表字", "肯,懇,啃|肯定:確認同意,懇求:誠心請求", "掯|掯:按壓"],
+"kuan": ["寬|寬闊:面積廣大", "/|提示:此調無代表字", "款|款式:樣式類型", "/|提示:此調無代表字"],
+"kun": ["昆,坤|昆蟲:小型節肢動物,乾坤:天地", "/|提示:此調無代表字", "捆|捆綁:用繩纏束", "困|困難:不容易做到"],
+"kang": ["康,糠|健康:身體良好,米糠:穀物外皮", "扛|扛起:用肩承擔", "/|提示:此調無代表字", "抗,炕|抵抗:對抗阻擋,火炕:北方睡臥設施"],
+"keng": ["坑|坑洞:地面凹陷", "/|提示:此調無代表字", "/|提示:此調無代表字", "/|提示:此調無代表字"],
+"kong": ["空|空氣:大氣氣體", "/|提示:此調無代表字", "孔,恐|孔洞:小的窟窿,恐怕:表示擔憂", "控,空|控制:掌握支配,空位:空著的位置"],
+"kuang": ["筐|竹筐:盛物竹器", "狂|瘋狂:失去常態", "夼|夼:兩山之間的谷地", "況,礦,曠|情況:事情狀態,礦石:含礦岩石"],
+"ha": ["哈|哈欠:張口呼氣,哈哈:笑聲", "蛤|蛤蟆:青蛙和蟾蜍的統稱", "哈|哈:姓氏", "哈|哈巴:方言，走路時兩膝向外彎曲"],
+"he": ["喝|喝水:飲用液體", "何,河,和|河流:陸地水道,和平:沒有戰爭", "/|提示:此調無代表字", "賀,喝|祝賀:表示慶祝,喝采:高聲讚好"],
+"hu": ["呼,忽,糊|呼吸:吸氣呼氣,忽然:突然發生", "湖,壺,胡|湖水:內陸水域,茶壺:泡茶器具", "虎|老虎:大型貓科猛獸", "戶,護,互|門戶:出入處,保護:使不受害"],
+"hai": ["嗨|嗨:打招呼用語", "孩,還|孩子:兒童,還有:仍然存在", "海|海洋:廣大水域", "害|害怕:心生恐懼"],
+"hei": ["黑,嘿|黑色:墨的顏色,嘿嘿:笑聲", "/|提示:此調無代表字", "/|提示:此調無代表字", "/|提示:此調無代表字"],
+"hao": ["蒿|茼蒿:一種蔬菜", "豪,毫,壕|豪華:奢華氣派,毫米:長度單位", "好|好人:品行良好的人", "號,好,浩|號碼:編號數字,愛好:喜歡的事"],
+"hou": ["齁|齁甜:過分甜膩", "侯,喉,猴|喉嚨:咽喉部位,猴子:靈長類動物", "吼|吼叫:大聲呼喊", "後,厚,候|後面:背向一面,厚薄:厚度,等候:等待"],
+"hua": ["花,划|花朵:植物花蕊,划船:操槳行船", "華,滑|中華:中國,滑冰:冰上運動", "/|提示:此調無代表字", "話,畫,化|說話:表達語言,畫圖:繪製圖像"],
+"huo": ["豁|豁達:心胸開闊", "活,和|生活:生存活動,和麵:攪拌麵粉", "火,夥|火焰:燃燒現象,夥伴:一起做事的人", "貨,獲,禍|貨物:買賣物品,收獲:取得成果"],
+"huai": ["/|提示:此調無代表字", "懷,槐,淮|懷抱:抱在胸前,槐樹:常見樹木", "/|提示:此調無代表字", "壞|壞人:品行不良者"],
+"hui": ["灰,揮,輝|灰色:黑白之間,揮手:擺動手臂", "回,迴|回家:返回住處,迴避:設法避開", "悔,毀|後悔:事後自責,毀壞:破壞損毀", "會,惠,匯|開會:集體商議,優惠:給予好處"],
+"han": ["憨|憨厚:老實純樸", "含,寒,韓|含有:裡面存在,寒冷:氣溫很低", "喊,罕|喊叫:大聲呼喚,罕見:很少見到", "漢,汗,旱|漢語:中國語言,汗水:皮膚分泌液"],
+"hen": ["/|提示:此調無代表字", "痕|痕跡:留下的印記", "很,狠|很好:程度深,狠心:心地殘忍", "恨|仇恨:強烈怨恨"],
+"huan": ["歡|歡樂:快樂愉悅", "還,環|還原:恢復原狀,環境:周圍狀況", "緩|緩慢:速度不快", "換,患,喚|交換:互相調換,呼喚:出聲叫人"],
+"hun": ["昏,婚,葷|黃昏:日落時分,結婚:成立婚姻", "魂,渾|靈魂:精神本體,渾濁:不清澈", "/|提示:此調無代表字", "混|混合:摻雜一起"],
+"hang": ["夯|夯土:砸實泥土", "行,航|銀行:金融機構,航行:船機行進", "/|提示:此調無代表字", "巷|巷道:礦坑通道"],
+"heng": ["哼|哼歌:低聲唱曲", "恆,橫|恆心:持久意志,橫線:左右方向線", "/|提示:此調無代表字", "橫|蠻橫:兇暴不講理"],
+"hong": ["轟,烘|轟隆:巨響聲,烘乾:用熱氣弄乾", "紅,洪,虹|紅色:血的顏色,洪水:氾濫大水", "哄|哄騙:用假話騙人", "哄|哄堂大笑:滿屋人大笑"],
+"huang": ["荒,慌|荒野:荒涼野地,慌張:心裡發急", "黃,皇,煌|黃色:向日葵的顏色,皇帝:古代君主", "恍,晃|恍然:忽然明白,晃眼:光線刺眼", "晃|晃動:來回搖擺"],
+};
+
+createApp({
+setup() {
+const audioPlayer = ref(null);
+const kuangAudioPlayer = ref(null);
+const isFullPlaying = ref(false);
+const openMenu = ref('initial');
+const selectedInitial = ref("g");
+const selectedFinal = ref(null);
+const devMode = ref(false);
+const devMarkers = ref([]);
+const currentMarkerIndex = ref(0);
+
+// 新 Kuang 錄音（kuang.mp3）內四聲的獨立時間戳
+const kuangTimelineData = {
+  "kuāng": { "start": 1.850, "end": 2.950 },
+  "kuáng": { "start": 4.100, "end": 5.180 },
+  "kuǎng": { "start": 6.430, "end": 7.550 },
+  "kuàng": { "start": 8.380, "end": 9.230 }
+};
+
+const timelineData = ref({
+  "g": {
+    "start": 0.714,
+    "end": 1.523
+  },
+  "k": {
+    "start": 1.755,
+    "end": 2.613
+  },
+  "h": {
+    "start": 2.831,
+    "end": 3.653
+  },
+  "a": {
+    "start": 4.167,
+    "end": 4.883
+  },
+  "o": {
+    "start": 5.358,
+    "end": 6.064
+  },
+  "e": {
+    "start": 6.629,
+    "end": 7.354
+  },
+  "i": {
+    "start": 7.937,
+    "end": 8.663
+  },
+  "u": {
+    "start": 9.26,
+    "end": 10.072
+  },
+  "ü": {
+    "start": 10.539,
+    "end": 11.258
+  },
+  "er": {
+    "start": 11.916,
+    "end": 12.679
+  },
+  "ai": {
+    "start": 14.09,
+    "end": 14.895
+  },
+  "ei": {
+    "start": 15.874,
+    "end": 16.728
+  },
+  "ao": {
+    "start": 17.904,
+    "end": 18.954
+  },
+  "ou": {
+    "start": 20.027,
+    "end": 21.048
+  },
+  "ia": {
+    "start": 22.078,
+    "end": 23.025
+  },
+  "ie": {
+    "start": 24.004,
+    "end": 25.057
+  },
+  "iao": {
+    "start": 26.133,
+    "end": 27.387
+  },
+  "iu": {
+    "start": 28.352,
+    "end": 29.377
+  },
+  "ua": {
+    "start": 30.479,
+    "end": 31.401
+  },
+  "uo": {
+    "start": 32.357,
+    "end": 33.414
+  },
+  "uai": {
+    "start": 34.381,
+    "end": 35.459
+  },
+  "ui": {
+    "start": 36.411,
+    "end": 37.38
+  },
+  "üe": {
+    "start": 38.324,
+    "end": 39.534
+  },
+  "an": {
+    "start": 40.878,
+    "end": 41.796
+  },
+  "en": {
+    "start": 42.763,
+    "end": 43.646
+  },
+  "in": {
+    "start": 44.827,
+    "end": 45.715
+  },
+  "un": {
+    "start": 46.736,
+    "end": 47.767
+  },
+  "ün": {
+    "start": 48.909,
+    "end": 49.832
+  },
+  "ian": {
+    "start": 51.092,
+    "end": 52.015
+  },
+  "uan": {
+    "start": 53.193,
+    "end": 54.131
+  },
+  "üan": {
+    "start": 55.349,
+    "end": 56.294
+  },
+  "ang": {
+    "start": 57.62,
+    "end": 58.461
+  },
+  "eng": {
+    "start": 59.478,
+    "end": 60.434
+  },
+  "ing": {
+    "start": 61.47,
+    "end": 62.415
+  },
+  "ong": {
+    "start": 63.691,
+    "end": 64.634
+  },
+  "iang": {
+    "start": 65.938,
+    "end": 66.915
+  },
+  "iong": {
+    "start": 68.085,
+    "end": 69.032
+  },
+  "uang": {
+    "start": 70.272,
+    "end": 71.39
+  },
+  "ueng": {
+    "start": 72.217,
+    "end": 73.349
+  },
+  "gā": {
+    "start": 74.954,
+    "end": 75.884
+  },
+  "gá": {
+    "start": 76.723,
+    "end": 77.766
+  },
+  "gǎ": {
+    "start": 78.735,
+    "end": 80.088
+  },
+  "gà": {
+    "start": 81.077,
+    "end": 81.844
+  },
+  "gē": {
+    "start": 83.344,
+    "end": 84.274
+  },
+  "gé": {
+    "start": 85.448,
+    "end": 86.532
+  },
+  "gě": {
+    "start": 87.722,
+    "end": 88.972
+  },
+  "gè": {
+    "start": 89.95,
+    "end": 90.77
+  },
+  "gū": {
+    "start": 91.66,
+    "end": 92.795
+  },
+  "gú": {
+    "start": 94.043,
+    "end": 95.367
+  },
+  "gǔ": {
+    "start": 96.398,
+    "end": 97.805
+  },
+  "gù": {
+    "start": 98.481,
+    "end": 99.779
+  },
+  "gāi": {
+    "start": 100.747,
+    "end": 101.708
+  },
+  "gái": {
+    "start": 102.665,
+    "end": 103.728
+  },
+  "gǎi": {
+    "start": 104.816,
+    "end": 106.12
+  },
+  "gài": {
+    "start": 107.16,
+    "end": 108.086
+  },
+  "gēi": {
+    "start": 109.471,
+    "end": 110.465
+  },
+  "géi": {
+    "start": 111.421,
+    "end": 112.516
+  },
+  "gěi": {
+    "start": 113.318,
+    "end": 114.883
+  },
+  "gèi": {
+    "start": 115.962,
+    "end": 116.731
+  },
+  "gāo": {
+    "start": 117.823,
+    "end": 119.45
+  },
+  "gáo": {
+    "start": 120.007,
+    "end": 121.377
+  },
+  "gǎo": {
+    "start": 122.145,
+    "end": 123.906
+  },
+  "gào": {
+    "start": 124.733,
+    "end": 125.805
+  },
+  "gōu": {
+    "start": 127.454,
+    "end": 128.602
+  },
+  "góu": {
+    "start": 129.56,
+    "end": 130.886
+  },
+  "gǒu": {
+    "start": 131.641,
+    "end": 133.516
+  },
+  "gòu": {
+    "start": 134.069,
+    "end": 135.435
+  },
+  "guā": {
+    "start": 136.659,
+    "end": 137.84
+  },
+  "guá": {
+    "start": 138.668,
+    "end": 139.885
+  },
+  "guǎ": {
+    "start": 140.655,
+    "end": 142.13
+  },
+  "guà": {
+    "start": 142.965,
+    "end": 144.087
+  },
+  "guō": {
+    "start": 145.919,
+    "end": 147.062
+  },
+  "guó": {
+    "start": 147.993,
+    "end": 149.301
+  },
+  "guǒ": {
+    "start": 150.203,
+    "end": 151.627
+  },
+  "guò": {
+    "start": 152.859,
+    "end": 153.89
+  },
+  "guāi": {
+    "start": 155.331,
+    "end": 156.566
+  },
+  "guái": {
+    "start": 157.399,
+    "end": 158.752
+  },
+  "guǎi": {
+    "start": 159.678,
+    "end": 161.318
+  },
+  "guài": {
+    "start": 162.194,
+    "end": 163.318
+  },
+  "guī": {
+    "start": 164.982,
+    "end": 166.121
+  },
+  "guí": {
+    "start": 167.054,
+    "end": 168.435
+  },
+  "guǐ": {
+    "start": 169.356,
+    "end": 171.054
+  },
+  "guì": {
+    "start": 172.068,
+    "end": 173.168
+  },
+  "gān": {
+    "start": 174.991,
+    "end": 175.987
+  },
+  "gán": {
+    "start": 176.948,
+    "end": 178.042
+  },
+  "gǎn": {
+    "start": 178.988,
+    "end": 180.403
+  },
+  "gàn": {
+    "start": 181.729,
+    "end": 182.765
+  },
+  "gēn": {
+    "start": 184.636,
+    "end": 185.699
+  },
+  "gén": {
+    "start": 186.795,
+    "end": 187.865
+  },
+  "gěn": {
+    "start": 189.035,
+    "end": 190.413
+  },
+  "gèn": {
+    "start": 191.678,
+    "end": 192.519
+  },
+  "guān": {
+    "start": 194.404,
+    "end": 195.561
+  },
+  "guán": {
+    "start": 196.402,
+    "end": 197.644
+  },
+  "guǎn": {
+    "start": 198.584,
+    "end": 200.203
+  },
+  "guàn": {
+    "start": 201.382,
+    "end": 202.478
+  },
+  "gūn": {
+    "start": 203.962,
+    "end": 205.052
+  },
+  "gún": {
+    "start": 205.98,
+    "end": 207.184
+  },
+  "gǔn": {
+    "start": 208.056,
+    "end": 209.704
+  },
+  "gùn": {
+    "start": 210.484,
+    "end": 211.402
+  },
+  "gāng": {
+    "start": 213,
+    "end": 214.047
+  },
+  "gáng": {
+    "start": 214.903,
+    "end": 216.059
+  },
+  "gǎng": {
+    "start": 217.02,
+    "end": 218.502
+  },
+  "gàng": {
+    "start": 219.56,
+    "end": 220.553
+  },
+  "gēng": {
+    "start": 221.79,
+    "end": 222.734
+  },
+  "géng": {
+    "start": 223.847,
+    "end": 224.885
+  },
+  "gěng": {
+    "start": 226.081,
+    "end": 227.535
+  },
+  "gèng": {
+    "start": 228.656,
+    "end": 229.649
+  },
+  "gōng": {
+    "start": 231.21,
+    "end": 232.24
+  },
+  "góng": {
+    "start": 232.987,
+    "end": 234.145
+  },
+  "gǒng": {
+    "start": 235.13,
+    "end": 236.722
+  },
+  "gòng": {
+    "start": 237.719,
+    "end": 238.719
+  },
+  "guāng": {
+    "start": 240.255,
+    "end": 241.462
+  },
+  "guáng": {
+    "start": 242.275,
+    "end": 243.566
+  },
+  "guǎng": {
+    "start": 244.612,
+    "end": 246.162
+  },
+  "guàng": {
+    "start": 247.488,
+    "end": 248.593
+  },
+  "kā": {
+    "start": 250.263,
+    "end": 251.321
+  },
+  "ká": {
+    "start": 252.15,
+    "end": 253.434
+  },
+  "kǎ": {
+    "start": 254.31,
+    "end": 255.867
+  },
+  "kà": {
+    "start": 256.623,
+    "end": 257.614
+  },
+  "kē": {
+    "start": 259.153,
+    "end": 260.198
+  },
+  "ké": {
+    "start": 261.273,
+    "end": 262.418
+  },
+  "kě": {
+    "start": 263.552,
+    "end": 265.017
+  },
+  "kè": {
+    "start": 266.141,
+    "end": 267.029
+  },
+  "kū": {
+    "start": 267.406,
+    "end": 268.522
+  },
+  "kú": {
+    "start": 269.275,
+    "end": 270.488
+  },
+  "kǔ": {
+    "start": 271.802,
+    "end": 273.286
+  },
+  "kù": {
+    "start": 274.151,
+    "end": 275.041
+  },
+  "kāi": {
+    "start": 276.413,
+    "end": 277.56
+  },
+  "kái": {
+    "start": 278.626,
+    "end": 279.84
+  },
+  "kǎi": {
+    "start": 280.906,
+    "end": 282.341
+  },
+  "kài": {
+    "start": 283.438,
+    "end": 284.369
+  },
+  "kēi": {
+    "start": 285.869,
+    "end": 287.016
+  },
+  "kéi": {
+    "start": 288.29,
+    "end": 289.73
+  },
+  "kěi": {
+    "start": 291.065,
+    "end": 292.555
+  },
+  "kèi": {
+    "start": 293.659,
+    "end": 294.646
+  },
+  "kāo": {
+    "start": 295.727,
+    "end": 296.875
+  },
+  "káo": {
+    "start": 297.612,
+    "end": 298.845
+  },
+  "kǎo": {
+    "start": 299.892,
+    "end": 301.439
+  },
+  "kào": {
+    "start": 302.287,
+    "end": 303.356
+  },
+  "kōu": {
+    "start": 304.591,
+    "end": 305.762
+  },
+  "kóu": {
+    "start": 306.969,
+    "end": 308.21
+  },
+  "kǒu": {
+    "start": 309.273,
+    "end": 310.774
+  },
+  "kòu": {
+    "start": 311.75,
+    "end": 312.743
+  },
+  "kuā": {
+    "start": 314.298,
+    "end": 315.456
+  },
+  "kuá": {
+    "start": 316.499,
+    "end": 317.753
+  },
+  "kuǎ": {
+    "start": 318.899,
+    "end": 320.477
+  },
+  "kuà": {
+    "start": 321.563,
+    "end": 322.615
+  },
+  "kuō": {
+    "start": 324.063,
+    "end": 325.265
+  },
+  "kuó": {
+    "start": 326.191,
+    "end": 327.471
+  },
+  "kuǒ": {
+    "start": 328.444,
+    "end": 329.994
+  },
+  "kuò": {
+    "start": 330.902,
+    "end": 331.96
+  },
+  "kuāi": {
+    "start": 333.416,
+    "end": 334.628
+  },
+  "kuái": {
+    "start": 335.67,
+    "end": 337.104
+  },
+  "kuǎi": {
+    "start": 338.426,
+    "end": 340.085
+  },
+  "kuài": {
+    "start": 341.536,
+    "end": 342.599
+  },
+  "kuī": {
+    "start": 344.301,
+    "end": 345.486
+  },
+  "kuí": {
+    "start": 346.757,
+    "end": 348.125
+  },
+  "kuǐ": {
+    "start": 349.405,
+    "end": 350.944
+  },
+  "kuì": {
+    "start": 352.116,
+    "end": 353.075
+  },
+  "kān": {
+    "start": 354.165,
+    "end": 355.31
+  },
+  "kán": {
+    "start": 356.143,
+    "end": 357.3
+  },
+  "kǎn": {
+    "start": 358.582,
+    "end": 360.033
+  },
+  "kàn": {
+    "start": 361.265,
+    "end": 362.237
+  },
+  "kēn": {
+    "start": 363.765,
+    "end": 364.805
+  },
+  "kén": {
+    "start": 366.033,
+    "end": 367.206
+  },
+  "kěn": {
+    "start": 368.72,
+    "end": 370.154
+  },
+  "kèn": {
+    "start": 371.496,
+    "end": 372.475
+  },
+  "kuān": {
+    "start": 374.564,
+    "end": 375.691
+  },
+  "kuán": {
+    "start": 377.003,
+    "end": 378.199
+  },
+  "kuǎn": {
+    "start": 379.672,
+    "end": 381.191
+  },
+  "kuàn": {
+    "start": 382.383,
+    "end": 383.405
+  },
+  "kūn": {
+    "start": 384.634,
+    "end": 385.811
+  },
+  "kún": {
+    "start": 386.774,
+    "end": 388.016
+  },
+  "kǔn": {
+    "start": 389.283,
+    "end": 390.813
+  },
+  "kùn": {
+    "start": 392.377,
+    "end": 393.37
+  },
+  "kāng": {
+    "start": 395.311,
+    "end": 396.534
+  },
+  "káng": {
+    "start": 397.79,
+    "end": 399.11
+  },
+  "kǎng": {
+    "start": 400.547,
+    "end": 402.107
+  },
+  "kàng": {
+    "start": 403.61,
+    "end": 404.625
+  },
+  "kēng": {
+    "start": 406.427,
+    "end": 407.63
+  },
+  "kéng": {
+    "start": 409.003,
+    "end": 410.239
+  },
+  "kěng": {
+    "start": 411.854,
+    "end": 413.43
+  },
+  "kèng": {
+    "start": 414.924,
+    "end": 415.916
+  },
+  "kōng": {
+    "start": 417.038,
+    "end": 418.217
+  },
+  "kóng": {
+    "start": 419.367,
+    "end": 420.58
+  },
+  "kǒng": {
+    "start": 421.849,
+    "end": 423.442
+  },
+  "kòng": {
+    "start": 424.686,
+    "end": 425.722
+  },
+  "kuāng": {
+    "start": 427.509,
+    "end": 428.802
+  },
+  "kuáng": {
+    "start": 430.074,
+    "end": 431.449
+  },
+  "kuǎng": {
+    "start": 432.642,
+    "end": 434.2
+  },
+  "kuàng": {
+    "start": 435.623,
+    "end": 436.85
+  },
+  "hā": {
+    "start": 437.916,
+    "end": 438.986
+  },
+  "há": {
+    "start": 439.92,
+    "end": 441.184
+  },
+  "hǎ": {
+    "start": 442.218,
+    "end": 443.714
+  },
+  "hà": {
+    "start": 444.928,
+    "end": 445.945
+  },
+  "hē": {
+    "start": 447.58,
+    "end": 448.718
+  },
+  "hé": {
+    "start": 449.925,
+    "end": 451.182
+  },
+  "hě": {
+    "start": 452.423,
+    "end": 453.957
+  },
+  "hè": {
+    "start": 455.039,
+    "end": 456.001
+  },
+  "hū": {
+    "start": 457.872,
+    "end": 459.014
+  },
+  "hú": {
+    "start": 460.276,
+    "end": 461.563
+  },
+  "hǔ": {
+    "start": 462.771,
+    "end": 464.35
+  },
+  "hù": {
+    "start": 465.785,
+    "end": 466.746
+  },
+  "hāi": {
+    "start": 468.384,
+    "end": 469.562
+  },
+  "hái": {
+    "start": 470.693,
+    "end": 471.94
+  },
+  "hǎi": {
+    "start": 473.146,
+    "end": 474.779
+  },
+  "hài": {
+    "start": 476.112,
+    "end": 477.215
+  },
+  "hēi": {
+    "start": 478.158,
+    "end": 479.296
+  },
+  "héi": {
+    "start": 480.289,
+    "end": 481.53
+  },
+  "hěi": {
+    "start": 482.676,
+    "end": 484.142
+  },
+  "hèi": {
+    "start": 485.406,
+    "end": 486.248
+  },
+  "hāo": {
+    "start": 487.831,
+    "end": 489.21
+  },
+  "háo": {
+    "start": 489.788,
+    "end": 491.236
+  },
+  "hǎo": {
+    "start": 492.046,
+    "end": 494.043
+  },
+  "hào": {
+    "start": 494.941,
+    "end": 496.042
+  },
+  "hōu": {
+    "start": 497.548,
+    "end": 498.653
+  },
+  "hóu": {
+    "start": 499.548,
+    "end": 500.896
+  },
+  "hǒu": {
+    "start": 501.898,
+    "end": 503.442
+  },
+  "hòu": {
+    "start": 504.649,
+    "end": 505.687
+  },
+  "huā": {
+    "start": 508.737,
+    "end": 509.978
+  },
+  "huá": {
+    "start": 511.259,
+    "end": 512.64
+  },
+  "huǎ": {
+    "start": 514.149,
+    "end": 515.713
+  },
+  "huà": {
+    "start": 516.993,
+    "end": 518.094
+  },
+  "huō": {
+    "start": 519.63,
+    "end": 520.919
+  },
+  "huó": {
+    "start": 522.302,
+    "end": 523.587
+  },
+  "huǒ": {
+    "start": 524.829,
+    "end": 526.373
+  },
+  "huò": {
+    "start": 527.878,
+    "end": 528.932
+  },
+  "huāi": {
+    "start": 531.099,
+    "end": 532.274
+  },
+  "huái": {
+    "start": 533.354,
+    "end": 534.624
+  },
+  "huǎi": {
+    "start": 535.884,
+    "end": 537.469
+  },
+  "huài": {
+    "start": 538.655,
+    "end": 539.83
+  },
+  "huī": {
+    "start": 541.22,
+    "end": 542.469
+  },
+  "huí": {
+    "start": 543.73,
+    "end": 545.016
+  },
+  "huǐ": {
+    "start": 546.06,
+    "end": 547.659
+  },
+  "huì": {
+    "start": 548.935,
+    "end": 550.149
+  },
+  "hān": {
+    "start": 552.283,
+    "end": 553.278
+  },
+  "hán": {
+    "start": 554.585,
+    "end": 555.719
+  },
+  "hǎn": {
+    "start": 557.298,
+    "end": 558.79
+  },
+  "hàn": {
+    "start": 560.198,
+    "end": 561.192
+  },
+  "hēn": {
+    "start": 563.059,
+    "end": 564.175
+  },
+  "hén": {
+    "start": 565.46,
+    "end": 566.654
+  },
+  "hěn": {
+    "start": 568.005,
+    "end": 569.407
+  },
+  "hèn": {
+    "start": 570.668,
+    "end": 571.554
+  },
+  "huān": {
+    "start": 573.74,
+    "end": 574.864
+  },
+  "huán": {
+    "start": 575.91,
+    "end": 577.121
+  },
+  "huǎn": {
+    "start": 578.409,
+    "end": 579.823
+  },
+  "huàn": {
+    "start": 581.117,
+    "end": 582.073
+  },
+  "hūn": {
+    "start": 583.675,
+    "end": 584.826
+  },
+  "hún": {
+    "start": 586.144,
+    "end": 587.333
+  },
+  "hǔn": {
+    "start": 588.653,
+    "end": 590.147
+  },
+  "hùn": {
+    "start": 591.557,
+    "end": 592.51
+  },
+  "hāng": {
+    "start": 594.181,
+    "end": 595.326
+  },
+  "háng": {
+    "start": 596.539,
+    "end": 597.778
+  },
+  "hǎng": {
+    "start": 599.068,
+    "end": 600.602
+  },
+  "hàng": {
+    "start": 601.756,
+    "end": 602.709
+  },
+  "hēng": {
+    "start": 604.582,
+    "end": 605.712
+  },
+  "héng": {
+    "start": 607.109,
+    "end": 608.305
+  },
+  "hěng": {
+    "start": 609.748,
+    "end": 611.326
+  },
+  "hèng": {
+    "start": 612.627,
+    "end": 613.635
+  },
+  "hōng": {
+    "start": 615.378,
+    "end": 616.6
+  },
+  "hóng": {
+    "start": 618.296,
+    "end": 619.574
+  },
+  "hǒng": {
+    "start": 620.883,
+    "end": 622.48
+  },
+  "hòng": {
+    "start": 623.886,
+    "end": 624.91
+  },
+  "huāng": {
+    "start": 626.777,
+    "end": 628.053
+  },
+  "huáng": {
+    "start": 629.255,
+    "end": 630.525
+  },
+  "huǎng": {
+    "start": 631.904,
+    "end": 633.485
+  },
+  "huàng": {
+    "start": 634.893,
+    "end": 636.022
+  }
+});
+
+const aiModal = ref({
+show: false,
+loading: false,
+pinyin: '',
+result: { chars: [], words: [], tip: '' }
+});
+
+const initialsData = { "本頁舌根音": ["g", "k", "h"] };
+const finalsData = {
+"單韻母及特殊": ["a", "o", "e", "i", "u", "ü", "er"],
+"複韻母": ["ai", "ei", "ao", "ou", "ia", "ie", "iao", "iu", "ua", "uo", "uai", "ui", "üe"],
+"前鼻韻母": ["an", "en", "in", "un", "ün", "ian", "uan", "üan"],
+"後鼻韻母": ["ang", "eng", "ing", "ong", "iang", "iong", "uang", "ueng"]
+};
+const validPairs = {
+"g": ["a", "e", "u", "ai", "ei", "ao", "ou", "ua", "uo", "uai", "ui", "an", "en", "uan", "un", "ang", "eng", "ong", "uang"],
+"k": ["a", "e", "u", "ai", "ei", "ao", "ou", "ua", "uo", "uai", "ui", "an", "en", "uan", "un", "ang", "eng", "ong", "uang"],
+"h": ["a", "e", "u", "ai", "ei", "ao", "ou", "ua", "uo", "uai", "ui", "an", "en", "uan", "un", "ang", "eng", "ong", "uang"]
+};
+
+const applyTone = (pinyin, tone) => {
+const tones = {
+'a':['ā','á','ǎ','à'], 'o':['ō','ó','ǒ','ò'], 'e':['ē','é','ě','è'],
+'i':['ī','í','ǐ','ì'], 'u':['ū','ú','ǔ','ù'], 'ü':['ǖ','ǘ','ǚ','ǜ']
+};
+let res = pinyin;
+let target = '';
+if (res.includes('a')) target = 'a';
+else if (res.includes('o')) target = 'o';
+else if (res.includes('e')) target = 'e';
+else if (res.includes('ui')) target = 'i';
+else if (res.includes('iu')) target = 'u';
+else if (res.includes('i')) target = 'i';
+else if (res.includes('u')) target = 'u';
+else if (res.includes('ü')) target = 'ü';
+return target ? res.replace(target, tones[target][tone-1]) : res;
+};
+
+const getBaseAndTone = (pinyin) => {
+const toneMap = {
+'ā': {b:'a', t:1}, 'á': {b:'a', t:2}, 'ǎ': {b:'a', t:3}, 'à': {b:'a', t:4},
+'ō': {b:'o', t:1}, 'ó': {b:'o', t:2}, 'ǒ': {b:'o', t:3}, 'ò': {b:'o', t:4},
+'ē': {b:'e', t:1}, 'é': {b:'e', t:2}, 'ě': {b:'e', t:3}, 'è': {b:'e', t:4},
+'ī': {b:'i', t:1}, 'í': {b:'i', t:2}, 'ǐ': {b:'i', t:3}, 'ì': {b:'i', t:4},
+'ū': {b:'u', t:1}, 'ú': {b:'u', t:2}, 'ǔ': {b:'u', t:3}, 'ù': {b:'u', t:4},
+'ǖ': {b:'ü', t:1}, 'ǘ': {b:'ü', t:2}, 'ǚ': {b:'ü', t:3}, 'ǜ': {b:'ü', t:4},
+};
+let base = pinyin;
+let tone = 1;
+for (let char of pinyin) {
+if (toneMap[char]) {
+base = pinyin.replace(char, toneMap[char].b);
+tone = toneMap[char].t;
+break;
+}
+}
+return { base, tone };
+};
+
+const getAiResponse = (pinyin) => {
+const { base, tone } = getBaseAndTone(pinyin);
+const initial = pinyin.charAt(0);
+
+const initialTips = {
+'g': "由舌根不送氣清塞音 g 引導，發音時舌根抵住軟腭堵住氣流，然後輕輕放開，氣流較弱不送氣，聲帶不振動。",
+'k': "由舌根送氣清塞音 k 引導，發音部位與 g 完全相同，但放開阻礙時必須送出一股明顯而強烈的氣流。",
+'h': "由舌根清擦音 h 引導，發音時舌根接近軟腭留出窄縫，氣流從縫中摩擦而出，注意不要摩擦過重成喉音。"
+};
+
+const toneTips = {
+1: "第一聲（陰平，調值55）：聲音高且平，維持在最高音區不變，發音要拉長且保持穩定。",
+2: "第二聲（陽平，調值35）：中高升調，由中等音高往上揚，發音感覺像在疑惑地詢問『什麼？』。",
+3: "第三聲（上聲，調值214）：降調再微升，發音時先將聲音沉到最低點（全低音），再自然順勢揚起。",
+4: "第四聲（去聲，調值51）：全降調，從最高點直接短促、乾脆、有力地下墜到最低點，字音最重。"
+};
+
+let response = {
+chars: [],
+words: [],
+tip: `${initialTips[initial] || ""} ${toneTips[tone] || ""}`
+};
+
+if (compactDb[base] && compactDb[base][tone - 1]) {
+const rawStr = compactDb[base][tone - 1];
+const parts = rawStr.split('|');
+
+response.chars = parts[0] ? parts[0].split(',') : [];
+
+if (parts[1]) {
+parts[1].split(',').forEach(pair => {
+const kv = pair.split(':');
+if (kv[0]) {
+response.words.push({ word: kv[0], meaning: kv[1] || '常用音節示範' });
+}
+});
+}
+}
+return response;
+};
+
+const askAiForCharacters = (pinyin) => {
+aiModal.value.show = true;
+aiModal.value.loading = true;
+aiModal.value.pinyin = pinyin;
+
+setTimeout(() => {
+aiModal.value.loading = false;
+aiModal.value.result = getAiResponse(pinyin);
+}, 400);
+};
+
+const displayFinal = computed(() => selectedFinal.value || '');
+const toneResults = computed(() => {
+if (selectedFinal.value === null) return [];
+const base = selectedInitial.value + displayFinal.value;
+return [1, 2, 3, 4].map(t => ({ pinyin: applyTone(base, t) }));
+});
+
+const toggleFullAudio = () => {
+if (!audioPlayer.value) return;
+audioPlayer.value.paused ? audioPlayer.value.play() : audioPlayer.value.pause();
+};
+
+const playByPinyin = (pinyin) => {
+// Kuang 四聲改用新錄音；其他音節繼續使用原 pinyin_gkh.mp3。
+const correctedKuang = kuangTimelineData[pinyin];
+let player = correctedKuang ? kuangAudioPlayer.value : audioPlayer.value;
+let data = correctedKuang || timelineData.value[pinyin];
+
+if (!data) {
+  // 無聲調拼音回退到第一聲。
+  const firstTone = applyTone(pinyin, 1);
+  data = kuangTimelineData[firstTone] || timelineData.value[firstTone];
+  player = kuangTimelineData[firstTone] ? kuangAudioPlayer.value : audioPlayer.value;
+}
+
+if (data && player) {
+  // 防止兩個音頻同時播放。
+  const otherPlayer = player === audioPlayer.value ? kuangAudioPlayer.value : audioPlayer.value;
+  if (otherPlayer && !otherPlayer.paused) otherPlayer.pause();
+
+  player.currentTime = data.start;
+  player.play();
+
+  const checkEnd = () => {
+    if (player.currentTime >= data.end || player.paused) {
+      if (player.currentTime >= data.end) player.pause();
+      player.removeEventListener('timeupdate', checkEnd);
+      player.removeEventListener('pause', checkEnd);
+    }
+  };
+  player.addEventListener('timeupdate', checkEnd);
+  player.addEventListener('pause', checkEnd);
+}
+};
+
+const toggleMenu = (menu) => { openMenu.value = openMenu.value === menu ? null : menu; };
+const selectInitial = (s) => {
+selectedInitial.value = s;
+if (selectedFinal.value && isFinalDisabled(selectedFinal.value)) selectedFinal.value = null;
+openMenu.value = 'final';
+if(s !== '') playByPinyin(s);
+};
+const selectFinal = (y) => { selectedFinal.value = y; openMenu.value = null; playByPinyin(y); };
+const isFinalDisabled = (y) => !validPairs[selectedInitial.value]?.includes(y);
+
+const startRecordingList = () => {
+const list = [];
+Object.values(initialsData).flat().forEach(s => { if(s!=='') list.push({id: s, start:0, end:0}) });
+Object.values(finalsData).flat().forEach(y => { list.push({id: y, start:0, end:0}) });
+for (const [initial, finals] of Object.entries(validPairs)) {
+finals.forEach(final => {
+const base = initial + final;
+[1,2,3,4].forEach(t => { list.push({ id: applyTone(base, t), start:0, end:0 }); });
+});
+}
+devMarkers.value = list;
+currentMarkerIndex.value = 0;
+alert(`打點清單已生成！共 ${list.length} 個音節。`);
+};
+
+const exportData = () => {
+const result = {};
+devMarkers.value.forEach(m => { if(m.end > 0) result[m.id] = { start: Number(m.start.toFixed(3)), end: Number(m.end.toFixed(3)) }; });
+navigator.clipboard.writeText(JSON.stringify(result, null, 2)).then(() => { alert("✅ 資料已成功複製至剪貼簿！"); });
+};
+
+onMounted(() => {
+if (audioPlayer.value) {
+audioPlayer.value.addEventListener('play', () => isFullPlaying.value = true);
+audioPlayer.value.addEventListener('pause', () => isFullPlaying.value = false);
+}
+window.addEventListener('keydown', (e) => {
+if (e.ctrlKey && e.key === 'm') devMode.value = !devMode.value;
+if (e.code === 'Space' && devMode.value) {
+e.preventDefault();
+const now = audioPlayer.value.currentTime;
+if (devMarkers.value[currentMarkerIndex.value]) {
+devMarkers.value[currentMarkerIndex.value].end = now;
+if (devMarkers.value[currentMarkerIndex.value + 1]) {
+devMarkers.value[currentMarkerIndex.value + 1].start = now;
+currentMarkerIndex.value++;
+nextTick(() => {
+const el = document.getElementById('marker-' + currentMarkerIndex.value);
+if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+} else {
+alert("🎉 所有音節標記完畢！");
+}
+}
+}
+});
+});
+
+return {
+audioPlayer, kuangAudioPlayer, isFullPlaying, openMenu, selectedInitial, selectedFinal, initialsData, finalsData,
+toggleMenu, selectInitial, selectFinal, isFinalDisabled, toneResults, displayFinal,
+toggleFullAudio, playByPinyin, aiModal, askAiForCharacters,
+devMode, devMarkers, currentMarkerIndex, startRecordingList, exportData
+};
+}
+}).mount('#app');
+</script>
+</body>
+</html>
